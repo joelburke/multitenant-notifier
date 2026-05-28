@@ -1,0 +1,29 @@
+## .NET
+**/obj/
+**/bin/
+*.user
+.vs/
+*.suo
+*.swp
+
+## EF
+*.db
+*.db-shm
+*.db-wal
+
+## Node
+node_modules/
+dist/
+
+## Build artifacts
+*.nupkg
+*.snupkg
+
+## Environment
+.env
+.env.local
+appsettings.local.json
+
+## OS
+.DS_Store
+Thumbs.db
