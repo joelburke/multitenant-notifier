@@ -13,8 +13,8 @@ A notification platform that ingests events from multiple customer organizations
 docker compose up
 ```
 
-- **Admin UI**: http://localhost:3000  
-- **API / Swagger**: http://localhost:5000/swagger  
+- **Admin UI**: http://localhost:3000
+- **API / Swagger**: http://localhost:5000/swagger
 
 The API applies database migrations automatically on startup. Wait ~20 seconds for SQL Server to be ready on first run.
 
@@ -134,6 +134,7 @@ See [DESIGN.md](DESIGN.md) for full architectural decisions and trade-offs.
 **Stack:** React + TypeScript (Vite) · ASP.NET Core 10 · Entity Framework Core 9 · SQL Server 2022
 
 **Layer structure (Clean Architecture):**
+
 ```
 Domain       — entities, exceptions, no dependencies
 Application  — interfaces, DTOs, use-case services; depends on Domain only
@@ -142,6 +143,7 @@ Api          — controllers, middleware, DI wiring; depends on Application + In
 ```
 
 **Key design decisions:**
+
 - **Isolation**: Shared database with `TenantId` column; every repository query filters by tenant
 - **Rate limiting**: In-memory sliding window, fully isolated per tenant
 - **Dispatchers**: `INotificationDispatcher` interface; new channels require only a new class + one DI line
@@ -159,4 +161,20 @@ Api          — controllers, middleware, DI wiring; depends on Application + In
 
 ## AI Tool Usage
 
-This project was built with Claude Code (Anthropic). Claude generated the majority of the boilerplate (project scaffolding, EF configurations, React pages, Dockerfiles) and test structure. Architecture decisions, the rule model design, isolation strategy, and rate limiting algorithm were my own design choices — I reviewed and understood every file before submission.
+This project was built with Claude Code (Anthropic). Claude generated the majority of the boilerplate (project scaffolding, EF configurations, React pages, Dockerfiles) and test structure. I gave claude guidelines on architecture by feeding it your requirements documents and providing my own: a .net API, react front end, SQL with Entity Framework, good testing with docker files driven by SOLID and Clean code and architecture because that's important to me.
+
+### Additional Notes
+
+1. It proposed a lot of the rule model design, isolation strategy, rate limiting algorithms and I reviewed and liked what I saw.
+1. Testing swagger resulted in 404's so I asked claude to review. It caught a mismatch in the dockercompose (env = prod) and the swagger middleware was originally only running in env = dev so I removed that and got it working.
+1. I prompted claude to create a vscode.workplace file for easy reuse. It created a `/root` folder duplicating a lot of the other projects which I could take or leave.
+
+## Given More Time
+
+I would
+
+1. Refactor 1m sliding timer constant to a configuration and have both the front end and back end utilize it. There were multiple places depending on it
+1. Refactor some of the more complex services to be more human readable
+1. Make the UI prettier
+1. Add React unit tests
+1. See if I could simplify the code, it's relatively complex I think due to my requirements of clean code/architecture
