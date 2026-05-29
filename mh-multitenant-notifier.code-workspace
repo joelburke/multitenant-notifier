@@ -1,0 +1,123 @@
+{
+  "folders": [
+    {
+      "name": "Root",
+      "path": "."
+    },
+    {
+      "name": "API",
+      "path": "src/NotificationPlatform.Api"
+    },
+    {
+      "name": "Application",
+      "path": "src/NotificationPlatform.Application"
+    },
+    {
+      "name": "Domain",
+      "path": "src/NotificationPlatform.Domain"
+    },
+    {
+      "name": "Infrastructure",
+      "path": "src/NotificationPlatform.Infrastructure"
+    },
+    {
+      "name": "Tests",
+      "path": "tests/NotificationPlatform.Tests"
+    },
+    {
+      "name": "Frontend",
+      "path": "frontend"
+    }
+  ],
+  "settings": {
+    "dotnet.defaultSolution": "NotificationPlatform.slnx",
+    "editor.formatOnSave": true,
+    "editor.rulers": [120],
+    "files.exclude": {
+      "**/bin": true,
+      "**/obj": true,
+      "**/.vs": true,
+      "**/node_modules": true
+    },
+    "[csharp]": {
+      "editor.defaultFormatter": "ms-dotnettools.csharp"
+    },
+    "[typescript]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[typescriptreact]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-dotnettools.csdevkit",
+      "ms-dotnettools.csharp",
+      "ms-azuretools.vscode-docker",
+      "esbenp.prettier-vscode",
+      "dbaeumer.vscode-eslint"
+    ]
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "API (dotnet)",
+        "type": "coreclr",
+        "request": "launch",
+        "preLaunchTask": "build",
+        "program": "${workspaceFolder:API}/bin/Debug/net10.0/NotificationPlatform.Api.dll",
+        "args": [],
+        "cwd": "${workspaceFolder:API}",
+        "env": {
+          "ASPNETCORE_ENVIRONMENT": "Development"
+        },
+        "serverReadyAction": {
+          "action": "openExternally",
+          "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+        }
+      },
+      {
+        "name": "Frontend (vite dev)",
+        "type": "node",
+        "request": "launch",
+        "runtimeExecutable": "npm",
+        "runtimeArgs": ["run", "dev"],
+        "cwd": "${workspaceFolder:Frontend}",
+        "console": "integratedTerminal"
+      }
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "build",
+        "command": "dotnet",
+        "type": "process",
+        "args": ["build", "${workspaceFolder:Root}/NotificationPlatform.slnx"],
+        "problemMatcher": "$msCompile"
+      },
+      {
+        "label": "test",
+        "command": "dotnet",
+        "type": "process",
+        "args": ["test", "${workspaceFolder:Root}/NotificationPlatform.slnx"],
+        "problemMatcher": "$msCompile",
+        "group": {
+          "kind": "test",
+          "isDefault": true
+        }
+      },
+      {
+        "label": "docker compose up",
+        "type": "shell",
+        "command": "docker compose up",
+        "options": {
+          "cwd": "${workspaceFolder:Root}"
+        },
+        "problemMatcher": []
+      }
+    ]
+  }
+}
