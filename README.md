@@ -176,5 +176,9 @@ I would
 1. Refactor 1m sliding timer constant to a configuration and have both the front end and back end utilize it. There were multiple places depending on it
 1. Refactor some of the more complex services to be more human readable
 1. Make the UI prettier
-1. Add React unit tests
+1. Add React and typescript automated tests
 1. See if I could simplify the code, it's relatively complex I think due to my requirements of clean code/architecture
+1. Remove credentials like SQL creds from plaintext `appsettings.json` files and ideally put in a credentials store or something, or at least get them out of being committed in plaintext to git and put them in env files gitignored for docker.
+1. Enhance the error messages displayed to the user in the admin UI to share what went wrong and the action the user needs to take to resolve.
+1. Update `design.md` to have some architectural diagrams. At least a visual representation of each project, their dependency flow, and an overview of the classes in each project is important.
+1. Update `claude.md` to ensure it more accurately represents the initial requirements and the design choices I've made.
