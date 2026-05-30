@@ -168,18 +168,18 @@ This project was built with Claude Code (Anthropic). Claude generated the majori
 1. It proposed a lot of the rule model design, isolation strategy, rate limiting algorithms and I reviewed and liked what I saw.
 1. Testing swagger resulted in 404's so I asked claude to review. It caught a mismatch in the dockercompose (env = prod) and the swagger middleware was originally only running in env = dev so I removed that and got it working.
 1. I prompted claude to create a vscode.workplace file for easy reuse. It created a `/root` folder duplicating a lot of the other projects which I could take or leave.
-1. Because I requested a clean architecture and clean code impementation, the solution was a little more complex than I'd like and the `desisgn.md` left some to be desired. I requested claude add at least one architectural diagram in `design.md` to at least explain each project, the purposoe of it, what is contained in it, the dependency flow and the classes. I also used it to correct a mermaid syntax error it made when rendering them on github.com
+1. Because I requested a clean architecture and clean code impementation, the solution was a little more complex than I'd like and the `desisgn.md` left some to be desired. I requested claude add at least one architectural diagram in `design.md` to at least explain each project, the purposoe of it, what is contained in it, the dependency flow and the classes. I also used it to correct a mermaid syntax error it made when rendering them on github.com. It is now much simpler to understand.
 
 ## Given More Time
 
 I would
 
-1. Refactor 1m sliding timer constant to a configuration and have both the front end and back end utilize it. There were multiple places depending on it
-1. Refactor some of the more complex services to be more human readable
-1. Make the UI prettier
-1. Add React and typescript automated tests
-1. See if I could simplify the code, it's relatively complex I think due to my requirements of clean code/architecture
-1. Remove credentials like SQL creds from plaintext `appsettings.json` files and ideally put in a credentials store or something, or at least get them out of being committed in plaintext to git and put them in env files gitignored for docker.
-1. Enhance the error messages displayed to the user in the admin UI to share what went wrong and the action the user needs to take to resolve.
-1. Update `design.md` to have some architectural diagrams. At least a visual representation of each project, their dependency flow, and an overview of the classes in each project is important.
-1. Update `claude.md` to ensure it more accurately represents the initial requirements and the design choices I've made.
+- [ ] Refactor 1m sliding timer constant to a configuration and have both the front end and back end utilize it. There were multiple places depending on it
+- [ ] Refactor some of the more complex services to be more human readable
+- [ ] Make the UI prettier
+- [ ] Add React and typescript automated tests
+- [ ] See if I could simplify the code and design to only what's needed for the requirements, it's relatively complex I think due to my requirements of clean code/architecture
+- [ ] Remove credentials like SQL creds from plaintext `appsettings.json` files and ideally put in a credentials store or something, or at least get them out of being committed in plaintext to git and put them in env files gitignored for docker.
+- [ ] Enhance the error messages displayed to the user in the admin UI to share what went wrong and the action the user needs to take to resolve.
+- [x] Update `design.md` to have some architectural diagrams. At least a visual representation of each project, their dependency flow, and an overview of the classes in each project is important.
+- [ ] Update `claude.md` to ensure it more accurately represents the initial requirements and the design choices I've made.

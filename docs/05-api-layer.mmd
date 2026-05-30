@@ -1,0 +1,39 @@
+classDiagram
+    class TenantsController {
+        -TenantService _tenantService
+        +GET    api/tenants
+        +GET    api/tenants/:id
+        +POST   api/tenants
+        +PUT    api/tenants/:id
+        +DELETE api/tenants/:id
+    }
+    class RoutingRulesController {
+        -RoutingRuleService _ruleService
+        +GET    api/tenants/:tenantId/rules
+        +GET    api/tenants/:tenantId/rules/:ruleId
+        +POST   api/tenants/:tenantId/rules
+        +PUT    api/tenants/:tenantId/rules/:ruleId
+        +DELETE api/tenants/:tenantId/rules/:ruleId
+    }
+    class EventsController {
+        -EventIngestionService _ingestionService
+        +POST api/events
+    }
+    class NotificationLogsController {
+        -EventIngestionService _ingestionService
+        +GET api/tenants/:tenantId/logs
+    }
+    class ExceptionMiddleware {
+        -RequestDelegate _next
+        -ILogger _logger
+        +InvokeAsync(HttpContext)
+    }
+
+    TenantsController --> TenantService
+    RoutingRulesController --> RoutingRuleService
+    EventsController --> EventIngestionService
+    NotificationLogsController --> EventIngestionService
+    ExceptionMiddleware ..> TenantNotFoundException : maps to 404
+    ExceptionMiddleware ..> RoutingRuleNotFoundException : maps to 404
+    ExceptionMiddleware ..> RateLimitExceededException : maps to 429
+    ExceptionMiddleware ..> DuplicateTenantSlugException : maps to 409

@@ -1,0 +1,42 @@
+sequenceDiagram
+    participant Client
+    participant ExceptionMiddleware
+    participant EventsController
+    participant EventIngestionService
+    participant ITenantRepository
+    participant IRateLimiter
+    participant IRoutingRuleRepository
+    participant IDispatcherRegistry
+    participant INotificationDispatcher
+    participant INotificationLogRepository
+
+    Client->>ExceptionMiddleware: POST /api/events (tenantId, eventType, payload)
+    ExceptionMiddleware->>EventsController: pass through
+    EventsController->>EventIngestionService: IngestAsync(request)
+    EventIngestionService->>ITenantRepository: GetByIdAsync(tenantId)
+    alt Tenant not found
+        ITenantRepository-->>EventIngestionService: null
+        EventIngestionService-->>ExceptionMiddleware: throw TenantNotFoundException
+        ExceptionMiddleware-->>Client: 404 Not Found
+    end
+    EventIngestionService->>IRateLimiter: TryConsume(tenantId, limit)
+    alt Rate limit exceeded
+        IRateLimiter-->>EventIngestionService: false
+        EventIngestionService->>INotificationLogRepository: AddAsync(Status=RateLimited)
+        EventIngestionService-->>ExceptionMiddleware: throw RateLimitExceededException
+        ExceptionMiddleware-->>Client: 429 Too Many Requests (Retry-After 60)
+    else Within limit
+        IRateLimiter-->>EventIngestionService: true
+        EventIngestionService->>IRoutingRuleRepository: GetByTenantAsync(tenantId)
+        loop For each active rule matching eventType
+            loop For each channel in rule
+                EventIngestionService->>IDispatcherRegistry: Resolve(channelType)
+                IDispatcherRegistry-->>EventIngestionService: INotificationDispatcher
+                EventIngestionService->>INotificationDispatcher: DispatchAsync(DispatchRequest)
+                INotificationDispatcher-->>EventIngestionService: DispatchResult
+                EventIngestionService->>INotificationLogRepository: AddAsync(Status=Sent or Failed)
+            end
+        end
+        EventIngestionService-->>EventsController: IngestEventResponse
+        EventsController-->>Client: 200 OK
+    end

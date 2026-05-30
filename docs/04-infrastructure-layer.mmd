@@ -1,0 +1,61 @@
+classDiagram
+    class AppDbContext {
+        +DbSet~Tenant~ Tenants
+        +DbSet~RoutingRule~ RoutingRules
+        +DbSet~NotificationLog~ NotificationLogs
+        #OnModelCreating(ModelBuilder)
+    }
+    class TenantConfiguration {
+        <<IEntityTypeConfiguration>>
+    }
+    class RoutingRuleConfiguration {
+        <<IEntityTypeConfiguration>>
+    }
+    class NotificationLogConfiguration {
+        <<IEntityTypeConfiguration>>
+    }
+    class TenantRepository {
+        -AppDbContext _db
+    }
+    class RoutingRuleRepository {
+        -AppDbContext _db
+    }
+    class NotificationLogRepository {
+        -AppDbContext _db
+    }
+    class LogDispatcher {
+        -ILogger _logger
+        +ChannelType = "log"
+        +DispatchAsync(request, ct)
+    }
+    class WebhookDispatcher {
+        -IHttpClientFactory _httpClientFactory
+        -ILogger _logger
+        +ChannelType = "webhook"
+        +DispatchAsync(request, ct)
+    }
+    class DispatcherRegistry {
+        -Dictionary~string,INotificationDispatcher~ _map
+        +Resolve(channelType)
+        +RegisteredChannelTypes
+    }
+    class SlidingWindowRateLimiter {
+        -ConcurrentDictionary~Guid,Queue~DateTime~~ _windows
+        +TryConsume(tenantId, limitPerMinute)
+    }
+
+    TenantRepository ..|> ITenantRepository : implements
+    RoutingRuleRepository ..|> IRoutingRuleRepository : implements
+    NotificationLogRepository ..|> INotificationLogRepository : implements
+    LogDispatcher ..|> INotificationDispatcher : implements
+    WebhookDispatcher ..|> INotificationDispatcher : implements
+    DispatcherRegistry ..|> IDispatcherRegistry : implements
+    SlidingWindowRateLimiter ..|> IRateLimiter : implements
+
+    TenantRepository --> AppDbContext
+    RoutingRuleRepository --> AppDbContext
+    NotificationLogRepository --> AppDbContext
+    AppDbContext --> TenantConfiguration
+    AppDbContext --> RoutingRuleConfiguration
+    AppDbContext --> NotificationLogConfiguration
+    DispatcherRegistry --> INotificationDispatcher

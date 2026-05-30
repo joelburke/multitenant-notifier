@@ -1,0 +1,96 @@
+classDiagram
+    class ITenantRepository {
+        <<interface>>
+        +GetAllAsync() Task~IEnumerable~
+        +GetByIdAsync(Guid) Task~Tenant~
+        +GetBySlugAsync(string) Task~Tenant~
+        +SlugExistsAsync(string) Task~bool~
+        +AddAsync(Tenant) Task
+        +DeleteAsync(Tenant) Task
+        +SaveChangesAsync() Task
+    }
+    class IRoutingRuleRepository {
+        <<interface>>
+        +GetByTenantAsync(Guid) Task~IEnumerable~
+        +GetByIdAndTenantAsync(Guid, Guid) Task~RoutingRule~
+        +AddAsync(RoutingRule) Task
+        +DeleteAsync(RoutingRule) Task
+        +SaveChangesAsync() Task
+    }
+    class INotificationLogRepository {
+        <<interface>>
+        +GetByTenantAsync(Guid, ...) Task~IEnumerable~
+        +AddAsync(NotificationLog) Task
+        +SaveChangesAsync() Task
+    }
+    class INotificationDispatcher {
+        <<interface>>
+        +string ChannelType
+        +DispatchAsync(DispatchRequest, CancellationToken) Task~DispatchResult~
+    }
+    class IDispatcherRegistry {
+        <<interface>>
+        +Resolve(string channelType) INotificationDispatcher
+        +RegisteredChannelTypes IReadOnlyList~string~
+    }
+    class IRateLimiter {
+        <<interface>>
+        +TryConsume(Guid tenantId, int limitPerMinute) bool
+    }
+    class TenantService {
+        -ITenantRepository _repo
+        +GetAllAsync()
+        +GetByIdAsync(id)
+        +CreateAsync(CreateTenantRequest)
+        +UpdateAsync(id, UpdateTenantRequest)
+        +DeleteAsync(id)
+    }
+    class RoutingRuleService {
+        -IRoutingRuleRepository _ruleRepo
+        -ITenantRepository _tenantRepo
+        +GetByTenantAsync(tenantId)
+        +GetByIdAsync(ruleId, tenantId)
+        +CreateAsync(tenantId, request)
+        +UpdateAsync(tenantId, ruleId, request)
+        +DeleteAsync(tenantId, ruleId)
+    }
+    class EventIngestionService {
+        -ITenantRepository _tenantRepo
+        -IRoutingRuleRepository _ruleRepo
+        -INotificationLogRepository _logRepo
+        -IDispatcherRegistry _registry
+        -IRateLimiter _rateLimiter
+        +IngestAsync(IngestEventRequest)
+        +GetLogsAsync(tenantId, ...)
+    }
+    class ChannelConfig {
+        <<record>>
+        +string Type
+        +Dictionary~string,string~ Settings
+    }
+    class DispatchRequest {
+        <<record>>
+        +Guid TenantId
+        +Guid RuleId
+        +string EventType
+        +Dictionary~string,object~ Payload
+        +ChannelConfig Channel
+    }
+    class DispatchResult {
+        <<record>>
+        +bool Success
+        +string? ErrorMessage
+    }
+
+    TenantService --> ITenantRepository
+    RoutingRuleService --> IRoutingRuleRepository
+    RoutingRuleService --> ITenantRepository
+    EventIngestionService --> ITenantRepository
+    EventIngestionService --> IRoutingRuleRepository
+    EventIngestionService --> INotificationLogRepository
+    EventIngestionService --> IDispatcherRegistry
+    EventIngestionService --> IRateLimiter
+    IDispatcherRegistry --> INotificationDispatcher
+    INotificationDispatcher --> DispatchRequest
+    INotificationDispatcher --> DispatchResult
+    DispatchRequest --> ChannelConfig

@@ -1,0 +1,13 @@
+graph LR
+    Api["NotificationPlatform.Api\n(Controllers, Middleware, DI wiring)"]
+    Application["NotificationPlatform.Application\n(Services, Interfaces, DTOs)"]
+    Infrastructure["NotificationPlatform.Infrastructure\n(EF Core, Repositories, Dispatchers, Rate Limiter)"]
+    Domain["NotificationPlatform.Domain\n(Entities, Enums, Exceptions)"]
+    Frontend["frontend/\n(React + TypeScript + Vite)"]
+
+    Api --> Application
+    Api --> Infrastructure
+    Infrastructure --> Application
+    Application --> Domain
+    Infrastructure --> Domain
+    Frontend -->|HTTP / REST| Api

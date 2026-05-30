@@ -1,0 +1,64 @@
+classDiagram
+    class Tenant {
+        +Guid Id
+        +string Name
+        +string Slug
+        +int RateLimitPerMinute
+        +bool IsActive
+        +DateTimeOffset CreatedAt
+        +DateTimeOffset UpdatedAt
+        +ICollection~RoutingRule~ Rules
+        +ICollection~NotificationLog~ Logs
+    }
+    class RoutingRule {
+        +Guid Id
+        +Guid TenantId
+        +string Name
+        +string EventTypePattern
+        +EventTypeMatchMode MatchMode
+        +string ChannelsJson
+        +int Priority
+        +bool IsActive
+        +Tenant Tenant
+    }
+    class NotificationLog {
+        +Guid Id
+        +Guid TenantId
+        +Guid? RuleId
+        +string EventType
+        +string ChannelType
+        +DispatchStatus Status
+        +string? ErrorMessage
+        +string PayloadJson
+        +DateTimeOffset CreatedAt
+        +Tenant Tenant
+    }
+    class EventTypeMatchMode {
+        <<enumeration>>
+        Exact
+        Prefix
+        Contains
+    }
+    class DispatchStatus {
+        <<enumeration>>
+        Sent
+        Failed
+        RateLimited
+    }
+    class TenantNotFoundException {
+        <<exception>>
+    }
+    class RoutingRuleNotFoundException {
+        <<exception>>
+    }
+    class RateLimitExceededException {
+        <<exception>>
+    }
+    class DuplicateTenantSlugException {
+        <<exception>>
+    }
+
+    Tenant "1" --> "*" RoutingRule
+    Tenant "1" --> "*" NotificationLog
+    RoutingRule --> EventTypeMatchMode
+    NotificationLog --> DispatchStatus
