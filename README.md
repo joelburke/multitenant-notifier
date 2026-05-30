@@ -175,6 +175,7 @@ This project was built with Claude Code (Anthropic). Claude generated the majori
 I would
 
 - [ ] Refactor 1m sliding timer constant to a configuration and have both the front end and back end utilize it. There were multiple places depending on it
+- [ ] Review Pros/Cons of having
 - [ ] Refactor some of the more complex services to be more human readable
 - [ ] Make the UI prettier
 - [ ] Add React and typescript automated tests

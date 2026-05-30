@@ -23,6 +23,45 @@ docker compose up          # full stack
 dotnet test                # 25 tests
 ```
 
+## Regenerating architecture diagrams
+
+Diagrams live in `ARCHITECTURE.md` (Mermaid source) and `docs/` (pre-rendered PDFs + `.mmd` source files).
+
+**Prerequisites:** Node.js, `npx` available, and Google Chrome installed at `C:/Program Files/Google/Chrome/Application/chrome.exe`.
+
+**Steps:**
+
+1. Edit the `.mmd` files in `docs/` (or update the matching blocks in `ARCHITECTURE.md` and copy the changes across).
+
+2. Write a temporary Puppeteer config pointing at the system Chrome (avoids downloading a headless shell):
+
+   ```bash
+   cat > /tmp/puppeteer.json << 'EOF'
+   {
+     "executablePath": "C:/Program Files/Google/Chrome/Application/chrome.exe",
+     "args": ["--no-sandbox"]
+   }
+   EOF
+   ```
+
+3. Render all diagrams to PDF:
+
+   ```bash
+   for f in docs/*.mmd; do
+     npx @mermaid-js/mermaid-cli -i "$f" -o "${f%.mmd}.pdf" -p /tmp/puppeteer.json --pdfFit
+   done
+   ```
+
+   To render a single diagram: `npx @mermaid-js/mermaid-cli -i docs/01-project-dependency-flow.mmd -o docs/01-project-dependency-flow.pdf -p /tmp/puppeteer.json --pdfFit`
+
+**Files:**
+
+| File | Purpose |
+|---|---|
+| `ARCHITECTURE.md` | Canonical source — Mermaid diagrams rendered inline on GitHub |
+| `docs/*.mmd` | Individual diagram source files (one per diagram) |
+| `docs/*.pdf` | Pre-rendered PDFs for offline/interview use |
+
 ## Key design decisions
 
 - **Isolation**: Shared database, `TenantId` column on all tables, all repo queries filter by it
