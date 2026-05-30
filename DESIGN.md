@@ -280,27 +280,27 @@ ASP.NET Core controllers and middleware. Depends on Application services directl
 classDiagram
     class TenantsController {
         -TenantService _tenantService
-        +GET /api/tenants
-        +GET /api/tenants/{id}
-        +POST /api/tenants
-        +PUT /api/tenants/{id}
-        +DELETE /api/tenants/{id}
+        +GET    api/tenants
+        +GET    api/tenants/:id
+        +POST   api/tenants
+        +PUT    api/tenants/:id
+        +DELETE api/tenants/:id
     }
     class RoutingRulesController {
         -RoutingRuleService _ruleService
-        +GET /api/tenants/{tenantId}/rules
-        +GET /api/tenants/{tenantId}/rules/{ruleId}
-        +POST /api/tenants/{tenantId}/rules
-        +PUT /api/tenants/{tenantId}/rules/{ruleId}
-        +DELETE /api/tenants/{tenantId}/rules/{ruleId}
+        +GET    api/tenants/:tenantId/rules
+        +GET    api/tenants/:tenantId/rules/:ruleId
+        +POST   api/tenants/:tenantId/rules
+        +PUT    api/tenants/:tenantId/rules/:ruleId
+        +DELETE api/tenants/:tenantId/rules/:ruleId
     }
     class EventsController {
         -EventIngestionService _ingestionService
-        +POST /api/events
+        +POST api/events
     }
     class NotificationLogsController {
         -EventIngestionService _ingestionService
-        +GET /api/tenants/{tenantId}/logs
+        +GET api/tenants/:tenantId/logs
     }
     class ExceptionMiddleware {
         -RequestDelegate _next
@@ -337,7 +337,7 @@ sequenceDiagram
     participant INotificationDispatcher
     participant INotificationLogRepository
 
-    Client->>ExceptionMiddleware: POST /api/events {tenantId, eventType, payload}
+    Client->>ExceptionMiddleware: POST /api/events (tenantId, eventType, payload)
     ExceptionMiddleware->>EventsController: pass through
     EventsController->>EventIngestionService: IngestAsync(request)
     EventIngestionService->>ITenantRepository: GetByIdAsync(tenantId)

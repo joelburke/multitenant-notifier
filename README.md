@@ -168,6 +168,7 @@ This project was built with Claude Code (Anthropic). Claude generated the majori
 1. It proposed a lot of the rule model design, isolation strategy, rate limiting algorithms and I reviewed and liked what I saw.
 1. Testing swagger resulted in 404's so I asked claude to review. It caught a mismatch in the dockercompose (env = prod) and the swagger middleware was originally only running in env = dev so I removed that and got it working.
 1. I prompted claude to create a vscode.workplace file for easy reuse. It created a `/root` folder duplicating a lot of the other projects which I could take or leave.
+1. Because I requested a clean architecture and clean code impementation, the solution was a little more complex than I'd like and the `desisgn.md` left some to be desired. I requested claude add at least one architectural diagram in `design.md` to at least explain each project, the purposoe of it, what is contained in it, the dependency flow and the classes. I also used it to correct a mermaid syntax error it made when rendering them on github.com
 
 ## Given More Time
 
