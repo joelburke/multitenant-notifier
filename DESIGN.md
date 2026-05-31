@@ -19,6 +19,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for full diagrams with Mermaid source, an
 
 - `Id`, `TenantId` (FK → Tenant), `Name`, `EventTypePattern`, `MatchMode` (enum), `ChannelsJson` (JSON column), `Priority`, `IsActive`, `CreatedAt`, `UpdatedAt`
 - Channels are stored as JSON (`nvarchar(max)`) rather than a separate table. This avoids a join on every event ingestion and lets the channel schema evolve (new channel types, new settings fields) without schema migrations. The trade-off is that you can't query `WHERE channel.type = 'webhook'` without JSON path syntax — acceptable for this use case since channels are always loaded with the rule.
+   - Note: Claude designed this and I feel it's pretty risky to store as JSON just from a maintainability standpoint.
 
 **NotificationLog**
 
