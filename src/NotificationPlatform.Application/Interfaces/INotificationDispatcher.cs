@@ -10,5 +10,5 @@ namespace NotificationPlatform.Application.Interfaces;
 public interface INotificationDispatcher
 {
     string ChannelType { get; }
-    Task<DispatchResult> DispatchAsync(DispatchRequest request, CancellationToken ct = default);
+    Task<DispatchResultDto> DispatchAsync(DispatchRequestDto request, CancellationToken ct = default);
 }

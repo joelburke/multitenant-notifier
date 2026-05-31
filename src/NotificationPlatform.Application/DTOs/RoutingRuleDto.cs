@@ -3,27 +3,27 @@ using NotificationPlatform.Domain.Entities;
 
 namespace NotificationPlatform.Application.DTOs;
 
-public record RoutingRuleResponse(
+public record RoutingRuleResponseDto(
     Guid Id,
     Guid TenantId,
     string Name,
     string EventTypePattern,
     EventTypeMatchMode MatchMode,
-    IList<ChannelConfig> Channels,
+    IList<ChannelConfigDto> Channels,
     int Priority,
     bool IsActive,
     DateTime CreatedAt);
 
-public record CreateRoutingRuleRequest(
+public record CreateRoutingRuleRequestDto(
     [Required, MinLength(2), MaxLength(100)] string Name,
     [Required, MinLength(1), MaxLength(200)] string EventTypePattern,
     EventTypeMatchMode MatchMode,
-    [Required, MinLength(1)] IList<ChannelConfig> Channels,
+    [Required, MinLength(1)] IList<ChannelConfigDto> Channels,
     [Range(0, 1000)] int Priority = 0);
 
-public record UpdateRoutingRuleRequest(
+public record UpdateRoutingRuleRequestDto(
     [Required, MinLength(2), MaxLength(100)] string Name,
     [Required, MinLength(1), MaxLength(200)] string EventTypePattern,
     EventTypeMatchMode MatchMode,
-    [Required, MinLength(1)] IList<ChannelConfig> Channels,
+    [Required, MinLength(1)] IList<ChannelConfigDto> Channels,
     [Range(0, 1000)] int Priority);

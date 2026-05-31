@@ -9,10 +9,10 @@ namespace NotificationPlatform.Api.Controllers;
 public class EventsController(EventIngestionService ingestionService) : ControllerBase
 {
     [HttpPost]
-    [ProducesResponseType(typeof(IngestEventResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(IngestEventResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-    public async Task<IActionResult> Ingest([FromBody] IngestEventRequest request, CancellationToken ct) =>
+    public async Task<IActionResult> Ingest([FromBody] IngestEventRequestDto request, CancellationToken ct) =>
         Ok(await ingestionService.IngestAsync(request, ct));
 }

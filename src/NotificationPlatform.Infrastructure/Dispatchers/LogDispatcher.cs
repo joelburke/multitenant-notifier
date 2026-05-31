@@ -9,7 +9,7 @@ public class LogDispatcher(ILogger<LogDispatcher> logger) : INotificationDispatc
 {
     public string ChannelType => "log";
 
-    public Task<DispatchResult> DispatchAsync(DispatchRequest request, CancellationToken ct = default)
+    public Task<DispatchResultDto> DispatchAsync(DispatchRequestDto request, CancellationToken ct = default)
     {
         logger.LogInformation(
             "NOTIFICATION | tenant={TenantId} rule={RuleId} event={EventType} payload={Payload}",
@@ -18,6 +18,6 @@ public class LogDispatcher(ILogger<LogDispatcher> logger) : INotificationDispatc
             request.EventType,
             JsonSerializer.Serialize(request.Payload));
 
-        return Task.FromResult(DispatchResult.Ok());
+        return Task.FromResult(DispatchResultDto.Ok());
     }
 }

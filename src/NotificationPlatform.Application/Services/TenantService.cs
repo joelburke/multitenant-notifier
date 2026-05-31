@@ -7,20 +7,20 @@ namespace NotificationPlatform.Application.Services;
 
 public class TenantService(ITenantRepository tenantRepository)
 {
-    public async Task<IReadOnlyList<TenantResponse>> GetAllAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<TenantResponseDto>> GetAllAsync(CancellationToken ct = default)
     {
         var tenants = await tenantRepository.GetAllAsync(ct);
         return tenants.Select(MapToResponse).ToList();
     }
 
-    public async Task<TenantResponse> GetByIdAsync(Guid id, CancellationToken ct = default)
+    public async Task<TenantResponseDto> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
         var tenant = await tenantRepository.GetByIdAsync(id, ct)
             ?? throw new TenantNotFoundException(id);
         return MapToResponse(tenant);
     }
 
-    public async Task<TenantResponse> CreateAsync(CreateTenantRequest request, CancellationToken ct = default)
+    public async Task<TenantResponseDto> CreateAsync(CreateTenantRequestDto request, CancellationToken ct = default)
     {
         if (await tenantRepository.SlugExistsAsync(request.Slug, ct))
             throw new DuplicateTenantSlugException(request.Slug);
@@ -31,7 +31,7 @@ public class TenantService(ITenantRepository tenantRepository)
         return MapToResponse(tenant);
     }
 
-    public async Task<TenantResponse> UpdateAsync(Guid id, UpdateTenantRequest request, CancellationToken ct = default)
+    public async Task<TenantResponseDto> UpdateAsync(Guid id, UpdateTenantRequestDto request, CancellationToken ct = default)
     {
         var tenant = await tenantRepository.GetByIdAsync(id, ct)
             ?? throw new TenantNotFoundException(id);
@@ -50,6 +50,6 @@ public class TenantService(ITenantRepository tenantRepository)
         await tenantRepository.SaveChangesAsync(ct);
     }
 
-    private static TenantResponse MapToResponse(Tenant t) =>
+    private static TenantResponseDto MapToResponse(Tenant t) =>
         new(t.Id, t.Name, t.Slug, t.RateLimitPerMinute, t.IsActive, t.CreatedAt);
 }

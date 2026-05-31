@@ -176,7 +176,7 @@ I would
 
 - [ ] Refactor 1m sliding timer constant to a configuration and have both the front end and back end utilize it. There were multiple places depending on it
 - [ ] Review Pros/Cons of having
-- [ ] Refactor some of the more complex services to be more human readable
+- [x] Refactor some of the more complex services to be more human readable
 - [ ] Make the UI prettier
 - [ ] Add React and typescript automated tests
 - [ ] See if I could simplify the code and design to only what's needed for the requirements, it's relatively complex I think due to my requirements of clean code/architecture
@@ -184,3 +184,4 @@ I would
 - [ ] Enhance the error messages displayed to the user in the admin UI to share what went wrong and the action the user needs to take to resolve.
 - [x] Update `design.md` to have some architectural diagrams. At least a visual representation of each project, their dependency flow, and an overview of the classes in each project is important.
 - [ ] Update `claude.md` to ensure it more accurately represents the initial requirements and the design choices I've made.
+- [ ] Run some CURLs in for loops to test rate limiting

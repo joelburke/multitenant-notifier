@@ -1,8 +1,8 @@
 namespace NotificationPlatform.Application.DTOs;
 
-public record DispatchRequest(
+public record DispatchRequestDto(
     Guid TenantId,
     Guid RuleId,
     string EventType,
     Dictionary<string, object?> Payload,
-    ChannelConfig Channel);
+    ChannelConfigDto Channel);

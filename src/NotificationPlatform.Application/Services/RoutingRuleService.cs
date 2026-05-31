@@ -12,14 +12,14 @@ public class RoutingRuleService(
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public async Task<IReadOnlyList<RoutingRuleResponse>> GetByTenantAsync(Guid tenantId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<RoutingRuleResponseDto>> GetByTenantAsync(Guid tenantId, CancellationToken ct = default)
     {
         await EnsureTenantExistsAsync(tenantId, ct);
         var rules = await ruleRepository.GetByTenantAsync(tenantId, ct);
         return rules.Select(MapToResponse).ToList();
     }
 
-    public async Task<RoutingRuleResponse> GetByIdAsync(Guid id, Guid tenantId, CancellationToken ct = default)
+    public async Task<RoutingRuleResponseDto> GetByIdAsync(Guid id, Guid tenantId, CancellationToken ct = default)
     {
         await EnsureTenantExistsAsync(tenantId, ct);
         var rule = await ruleRepository.GetByIdAndTenantAsync(id, tenantId, ct)
@@ -27,7 +27,7 @@ public class RoutingRuleService(
         return MapToResponse(rule);
     }
 
-    public async Task<RoutingRuleResponse> CreateAsync(Guid tenantId, CreateRoutingRuleRequest request, CancellationToken ct = default)
+    public async Task<RoutingRuleResponseDto> CreateAsync(Guid tenantId, CreateRoutingRuleRequestDto request, CancellationToken ct = default)
     {
         await EnsureTenantExistsAsync(tenantId, ct);
 
@@ -39,7 +39,7 @@ public class RoutingRuleService(
         return MapToResponse(rule);
     }
 
-    public async Task<RoutingRuleResponse> UpdateAsync(Guid id, Guid tenantId, UpdateRoutingRuleRequest request, CancellationToken ct = default)
+    public async Task<RoutingRuleResponseDto> UpdateAsync(Guid id, Guid tenantId, UpdateRoutingRuleRequestDto request, CancellationToken ct = default)
     {
         await EnsureTenantExistsAsync(tenantId, ct);
 
@@ -70,9 +70,9 @@ public class RoutingRuleService(
         if (tenant == null) throw new TenantNotFoundException(tenantId);
     }
 
-    private static RoutingRuleResponse MapToResponse(RoutingRule r)
+    private static RoutingRuleResponseDto MapToResponse(RoutingRule r)
     {
-        var channels = JsonSerializer.Deserialize<IList<ChannelConfig>>(r.ChannelsJson, JsonOptions) ?? [];
+        var channels = JsonSerializer.Deserialize<IList<ChannelConfigDto>>(r.ChannelsJson, JsonOptions) ?? [];
         return new(r.Id, r.TenantId, r.Name, r.EventTypePattern, r.MatchMode, channels, r.Priority, r.IsActive, r.CreatedAt);
     }
 }

@@ -2,17 +2,17 @@ using System.ComponentModel.DataAnnotations;
 
 namespace NotificationPlatform.Application.DTOs;
 
-public record IngestEventRequest(
+public record IngestEventRequestDto(
     [Required] Guid TenantId,
     [Required, MinLength(1), MaxLength(200)] string EventType,
     Dictionary<string, object?>? Payload);
 
-public record IngestEventResponse(
+public record IngestEventResponseDto(
     int DispatchedCount,
     bool WasRateLimited,
     IList<string> MatchedChannels);
 
-public record NotificationLogResponse(
+public record NotificationLogResponseDto(
     Guid Id,
     Guid TenantId,
     Guid? RuleId,

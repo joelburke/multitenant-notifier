@@ -9,7 +9,7 @@ namespace NotificationPlatform.Api.Controllers;
 public class NotificationLogsController(EventIngestionService ingestionService) : ControllerBase
 {
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<NotificationLogResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(IReadOnlyList<NotificationLogResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetLogs(
         Guid tenantId,
