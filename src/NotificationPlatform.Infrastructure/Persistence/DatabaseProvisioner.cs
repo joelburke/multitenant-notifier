@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -5,14 +6,16 @@ using NotificationPlatform.Application.Interfaces;
 
 namespace NotificationPlatform.Infrastructure.Persistence;
 
-/// <summary>
-/// Creates and drops SQL Server databases for tenants.
-/// Uses the catalog connection string to reach the server, then switches to master for DDL.
-/// </summary>
-public class DatabaseProvisioner(IConfiguration configuration) : IDatabaseProvisioner
+public partial class DatabaseProvisioner(IConfiguration configuration) : IDatabaseProvisioner
 {
+    [GeneratedRegex(@"^[a-z0-9\-]+$")]
+    private static partial Regex SafeSlugPattern();
+
     public async Task<string> ProvisionAsync(string tenantSlug, CancellationToken ct = default)
     {
+        if (!SafeSlugPattern().IsMatch(tenantSlug))
+            throw new ArgumentException($"Tenant slug '{tenantSlug}' contains invalid characters.", nameof(tenantSlug));
+
         var dbName = BuildDatabaseName(tenantSlug);
         var serverConnectionString = BuildServerConnectionString();
         var tenantConnectionString = BuildTenantConnectionString(dbName);
@@ -32,9 +35,10 @@ public class DatabaseProvisioner(IConfiguration configuration) : IDatabaseProvis
         await using var connection = new SqlConnection(serverConnectionString);
         await connection.OpenAsync(ct);
 
-        // Force disconnect active sessions before dropping
+        // sys.databases lookup is parameterized; DDL identifiers use bracket-quoting
+        // (SQL Server does not support parameterized DDL identifier positions).
         var sql = $"""
-            IF EXISTS (SELECT name FROM sys.databases WHERE name = N'{dbName}')
+            IF EXISTS (SELECT name FROM sys.databases WHERE name = @dbName)
             BEGIN
                 ALTER DATABASE [{dbName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
                 DROP DATABASE [{dbName}];
@@ -42,6 +46,7 @@ public class DatabaseProvisioner(IConfiguration configuration) : IDatabaseProvis
             """;
 
         await using var cmd = new SqlCommand(sql, connection);
+        cmd.Parameters.AddWithValue("@dbName", dbName);
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
@@ -72,8 +77,10 @@ public class DatabaseProvisioner(IConfiguration configuration) : IDatabaseProvis
         await using var connection = new SqlConnection(serverConnectionString);
         await connection.OpenAsync(ct);
 
-        var sql = $"IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'{dbName}') CREATE DATABASE [{dbName}]";
+        // sys.databases lookup parameterized; CREATE DATABASE identifier bracket-quoted
+        var sql = $"IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = @dbName) CREATE DATABASE [{dbName}]";
         await using var cmd = new SqlCommand(sql, connection);
+        cmd.Parameters.AddWithValue("@dbName", dbName);
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
