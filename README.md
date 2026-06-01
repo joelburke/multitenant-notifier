@@ -174,14 +174,20 @@ This project was built with Claude Code (Anthropic). Claude generated the majori
 
 I would
 
-- [ ] Refactor 1m sliding timer constant to a configuration and have both the front end and back end utilize it. There were multiple places depending on it
-- [ ] Review Pros/Cons of having
+- [ ] Refactor 1m sliding timer constant to a configuration and have both the front end and back end utilize it. There were multiple places depending on magic strings
+- [ ] Review Project dependecies to determine if any dependencies shuold be broken with absractions.
+- [ ] Refactor controller layer to depend on service interfaces instead of concrete services
 - [x] Refactor some of the more complex services to be more human readable
 - [ ] Make the UI prettier
 - [ ] Add React and typescript automated tests
-- [ ] See if I could simplify the code and design to only what's needed for the requirements, it's relatively complex I think due to my requirements of clean code/architecture
+- [ ] See if I could simplify the code and design to only what's needed for the requirements, it's relatively complex I think due to my requirements of clean code/architecture as it's important not to over architect.
 - [ ] Remove credentials like SQL creds from plaintext `appsettings.json` files and ideally put in a credentials store or something, or at least get them out of being committed in plaintext to git and put them in env files gitignored for docker.
 - [ ] Enhance the error messages displayed to the user in the admin UI to share what went wrong and the action the user needs to take to resolve.
-- [x] Update `design.md` to have some architectural diagrams. At least a visual representation of each project, their dependency flow, and an overview of the classes in each project is important.
+- [x] Update `design.md` to have some architectural diagrams. At least a visual representation of each project, their dependency flow, and an overview of the classes in each project is importan
 - [ ] Update `claude.md` to ensure it more accurately represents the initial requirements and the design choices I've made.
 - [ ] Run some CURLs in for loops to test rate limiting
+- [ ] Consider refactoring Channels in the db, currently they are stored as JSON (nvarchar(max)) rather than a separate table which seems difficult to maintain
+- [ ] Review this and ensure it doesn't have system resources. One pereson running a long query could definitely impact system resources. "what makes it interesting is that every tenant must be
+      safely isolated from every other tenant, both in their data and in their ability to consume
+      system resources."
+      Review the output in the main claude session and consider a db per tenant with terraform implementation or something like that.
