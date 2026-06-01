@@ -5,6 +5,7 @@ using NotificationPlatform.Application.Interfaces;
 using NotificationPlatform.Application.Services;
 using NotificationPlatform.Infrastructure.Dispatchers;
 using NotificationPlatform.Infrastructure.Persistence;
+using NotificationPlatform.Infrastructure.Persistence.Factories;
 using NotificationPlatform.Infrastructure.Persistence.Repositories;
 using NotificationPlatform.Infrastructure.RateLimiting;
 
@@ -16,18 +17,23 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddDbContext<AppDbContext>(options =>
+        // Catalog DB — the one always-on shared database
+        services.AddDbContext<CatalogDbContext>(options =>
             options.UseSqlServer(
-                configuration.GetConnectionString("DefaultConnection"),
-                sql => sql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName)));
+                configuration.GetConnectionString("CatalogConnection"),
+                sql => sql.MigrationsAssembly(typeof(CatalogDbContext).Assembly.FullName)));
+
+        // Per-tenant context factory — scoped so it shares the CatalogDbContext within a request
+        services.AddScoped<TenantDbContextFactory>();
 
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<IRoutingRuleRepository, RoutingRuleRepository>();
         services.AddScoped<INotificationLogRepository, NotificationLogRepository>();
 
+        services.AddScoped<IDatabaseProvisioner, DatabaseProvisioner>();
+
         services.AddSingleton<IRateLimiter, SlidingWindowRateLimiter>();
 
-        // Dispatchers — each registered independently so new ones require only this list change
         services.AddScoped<INotificationDispatcher, LogDispatcher>();
         services.AddScoped<INotificationDispatcher, WebhookDispatcher>();
         services.AddScoped<IDispatcherRegistry, DispatcherRegistry>();
@@ -36,6 +42,9 @@ public static class DependencyInjection
         {
             AllowAutoRedirect = false
         });
+
+        services.AddMemoryCache();
+        services.AddHostedService<TenantMigrationRunner>();
 
         return services;
     }

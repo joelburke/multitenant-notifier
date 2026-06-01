@@ -23,8 +23,6 @@ public class RoutingRule
     public DateTime CreatedAt { get; private set; }
     public DateTime UpdatedAt { get; private set; }
 
-    public Tenant Tenant { get; private set; } = null!;
-
     private RoutingRule() { }
 
     public static RoutingRule Create(

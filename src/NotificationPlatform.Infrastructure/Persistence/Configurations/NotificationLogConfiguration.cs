@@ -14,6 +14,8 @@ public class NotificationLogConfiguration : IEntityTypeConfiguration<Notificatio
         builder.Property(l => l.PayloadJson).IsRequired().HasColumnType("nvarchar(max)");
         builder.Property(l => l.ErrorMessage).HasMaxLength(500);
 
+        // TenantId is stored for observability only — no FK since Tenant lives in the catalog database.
+        builder.Property(l => l.TenantId).IsRequired();
         builder.HasIndex(l => l.TenantId);
         builder.HasIndex(l => new { l.TenantId, l.CreatedAt });
     }

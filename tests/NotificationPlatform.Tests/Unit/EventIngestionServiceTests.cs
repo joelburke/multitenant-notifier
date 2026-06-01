@@ -16,6 +16,9 @@ public class EventIngestionServiceTests
     private readonly Mock<IDispatcherRegistry> _registry = new();
     private readonly Mock<IRateLimiter> _rateLimiter = new();
 
+    private static Tenant MakeTenant(string name, string slug, int limit) =>
+        Tenant.Create(name, slug, limit, $"Server=db;Database={slug};");
+
     private EventIngestionService CreateService() =>
         new(_tenantRepo.Object, _ruleRepo.Object, _logRepo.Object, _registry.Object, _rateLimiter.Object);
 
@@ -33,11 +36,10 @@ public class EventIngestionServiceTests
     [Fact]
     public async Task Throws_RateLimitExceededException_when_limit_reached()
     {
-        var tenant = Tenant.Create("Acme", "acme", 10);
+        var tenant = MakeTenant("Acme", "acme", 10);
         _tenantRepo.Setup(r => r.GetByIdAsync(tenant.Id, default)).ReturnsAsync(tenant);
         _rateLimiter.Setup(r => r.TryConsume(tenant.Id, 10)).Returns(false);
         _logRepo.Setup(r => r.AddAsync(It.IsAny<NotificationLog>(), default)).Returns(Task.CompletedTask);
-        _logRepo.Setup(r => r.SaveChangesAsync(default)).Returns(Task.CompletedTask);
 
         var svc = CreateService();
         var act = () => svc.IngestAsync(new IngestEventRequestDto(tenant.Id, "test.event", null));
@@ -48,11 +50,10 @@ public class EventIngestionServiceTests
     [Fact]
     public async Task Returns_zero_dispatched_when_no_rules_match()
     {
-        var tenant = Tenant.Create("Acme", "acme", 100);
+        var tenant = MakeTenant("Acme", "acme", 100);
         _tenantRepo.Setup(r => r.GetByIdAsync(tenant.Id, default)).ReturnsAsync(tenant);
         _rateLimiter.Setup(r => r.TryConsume(tenant.Id, 100)).Returns(true);
         _ruleRepo.Setup(r => r.GetByTenantAsync(tenant.Id, default)).ReturnsAsync([]);
-        _logRepo.Setup(r => r.SaveChangesAsync(default)).Returns(Task.CompletedTask);
 
         var svc = CreateService();
         var result = await svc.IngestAsync(new IngestEventRequestDto(tenant.Id, "no.match", null));
@@ -64,7 +65,7 @@ public class EventIngestionServiceTests
     [Fact]
     public async Task Dispatches_to_matching_active_rules_only()
     {
-        var tenant = Tenant.Create("Acme", "acme", 100);
+        var tenant = MakeTenant("Acme", "acme", 100);
         var channelsJson = """[{"type":"log","settings":{}}]""";
         var activeRule = RoutingRule.Create(tenant.Id, "Active", "user.signup", EventTypeMatchMode.Exact, channelsJson);
         var inactiveRule = RoutingRule.Create(tenant.Id, "Inactive", "user.signup", EventTypeMatchMode.Exact, channelsJson);
@@ -79,7 +80,6 @@ public class EventIngestionServiceTests
             .ReturnsAsync(DispatchResultDto.Ok());
         _registry.Setup(r => r.Resolve("log")).Returns(dispatcher.Object);
         _logRepo.Setup(r => r.AddAsync(It.IsAny<NotificationLog>(), default)).Returns(Task.CompletedTask);
-        _logRepo.Setup(r => r.SaveChangesAsync(default)).Returns(Task.CompletedTask);
 
         var svc = CreateService();
         var result = await svc.IngestAsync(new IngestEventRequestDto(tenant.Id, "user.signup", null));
@@ -91,15 +91,15 @@ public class EventIngestionServiceTests
     [Fact]
     public async Task Tenant_A_rules_never_fire_for_Tenant_B_event()
     {
-        var tenantA = Tenant.Create("Acme", "acme", 100);
-        var tenantB = Tenant.Create("Globex", "globex", 100);
-        var tenantARule = RoutingRule.Create(tenantA.Id, "Rule A", "alert", EventTypeMatchMode.Exact, """[{"type":"log","settings":{}}]""");
+        var tenantA = MakeTenant("Acme", "acme", 100);
+        var tenantB = MakeTenant("Globex", "globex", 100);
+        _ = RoutingRule.Create(tenantA.Id, "Rule A", "alert", EventTypeMatchMode.Exact, """[{"type":"log","settings":{}}]""");
 
         _tenantRepo.Setup(r => r.GetByIdAsync(tenantB.Id, default)).ReturnsAsync(tenantB);
         _rateLimiter.Setup(r => r.TryConsume(tenantB.Id, 100)).Returns(true);
 
+        // The repository for tenant B's database must return only tenant B's rules
         _ruleRepo.Setup(r => r.GetByTenantAsync(tenantB.Id, default)).ReturnsAsync([]);
-        _logRepo.Setup(r => r.SaveChangesAsync(default)).Returns(Task.CompletedTask);
 
         var svc = CreateService();
         var result = await svc.IngestAsync(new IngestEventRequestDto(tenantB.Id, "alert", null));

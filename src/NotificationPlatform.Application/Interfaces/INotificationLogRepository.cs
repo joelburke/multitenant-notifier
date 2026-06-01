@@ -11,5 +11,4 @@ public interface INotificationLogRepository
         CancellationToken ct = default);
 
     Task AddAsync(NotificationLog log, CancellationToken ct = default);
-    Task SaveChangesAsync(CancellationToken ct = default);
 }

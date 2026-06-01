@@ -24,7 +24,9 @@ services:
       - "5000:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ConnectionStrings__DefaultConnection: "Server=db,1433;Database=NotificationPlatform;User Id=sa;Password=Your_password123!;TrustServerCertificate=True;"
+      # The catalog DB is the only statically-configured connection string.
+      # Each tenant's database connection string is stored in the catalog and resolved at runtime.
+      ConnectionStrings__CatalogConnection: "Server=db,1433;Database=NotificationPlatform_Catalog;User Id=sa;Password=Your_password123!;TrustServerCertificate=True;"
     depends_on:
       db:
         condition: service_healthy
