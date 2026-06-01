@@ -144,7 +144,7 @@ Api          — controllers, middleware, DI wiring; depends on Application + In
 
 **Key design decisions:**
 
-- **Isolation**: Shared database with `TenantId` column; every repository query filters by tenant
+- **Isolation**: Database-per-tenant — each tenant gets its own SQL Server database provisioned at creation time. A catalog database (`NotificationPlatform_Catalog`) holds tenant metadata and connection strings. Tenant databases share no tables, transaction logs, or buffer pool entries.
 - **Rate limiting**: In-memory sliding window, fully isolated per tenant
 - **Dispatchers**: `INotificationDispatcher` interface; new channels require only a new class + one DI line
 
@@ -156,6 +156,7 @@ Api          — controllers, middleware, DI wiring; depends on Application + In
 - No authentication — `tenant_id` in the request body is not production-safe
 - No webhook retry logic — failed POSTs are logged but not retried
 - Rule conditions match on event type only — no payload field filtering
+- Tenant database connection strings are stored in plaintext in the catalog DB — production would use a secrets store (Azure Key Vault, AWS Secrets Manager)
 
 ---
 
@@ -187,7 +188,4 @@ I would
 - [ ] Update `claude.md` to ensure it more accurately represents the initial requirements and the design choices I've made.
 - [ ] Run some CURLs in for loops to test rate limiting
 - [ ] Consider refactoring Channels in the db, currently they are stored as JSON (nvarchar(max)) rather than a separate table which seems difficult to maintain
-- [ ] Review this and ensure it doesn't have system resources. One pereson running a long query could definitely impact system resources. "what makes it interesting is that every tenant must be
-      safely isolated from every other tenant, both in their data and in their ability to consume
-      system resources."
-      Review the output in the main claude session and consider a db per tenant with terraform implementation or something like that.
+- [x] Refactored to database-per-tenant for true resource isolation — each tenant's queries, locks, and buffer pool usage are physically isolated. A long-running query from Tenant A cannot block Tenant B.

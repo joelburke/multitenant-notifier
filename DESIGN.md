@@ -8,56 +8,67 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for full diagrams with Mermaid source, an
 
 ## Data Model
 
+### Databases
+
+**Catalog DB** (`NotificationPlatform_Catalog`) — always-on shared database managed by `CatalogDbContext`.
+
+**Tenant DBs** (`NotificationPlatform_{slug}`) — one per tenant, provisioned at creation time, managed by `AppDbContext` with a per-request connection string.
+
 ### Entities
 
-**Tenant**
+**Tenant** _(Catalog DB)_
 
 - `Id` (Guid PK), `Name`, `Slug` (unique, lowercase), `RateLimitPerMinute`, `IsActive`, `CreatedAt`, `UpdatedAt`
-- Slug is the human-readable identifier used in API URLs and docs.
+- `ConnectionString` — the connection string to this tenant's isolated database. Stored in the catalog only; never exposed through the API.
 
-**RoutingRule**
+**RoutingRule** _(Tenant DB)_
 
-- `Id`, `TenantId` (FK → Tenant), `Name`, `EventTypePattern`, `MatchMode` (enum), `ChannelsJson` (JSON column), `Priority`, `IsActive`, `CreatedAt`, `UpdatedAt`
+- `Id`, `TenantId` (plain Guid, no FK — Tenant lives in a different database), `Name`, `EventTypePattern`, `MatchMode` (enum), `ChannelsJson` (JSON column), `Priority`, `IsActive`, `CreatedAt`, `UpdatedAt`
 - Channels are stored as JSON (`nvarchar(max)`) rather than a separate table. This avoids a join on every event ingestion and lets the channel schema evolve (new channel types, new settings fields) without schema migrations. The trade-off is that you can't query `WHERE channel.type = 'webhook'` without JSON path syntax — acceptable for this use case since channels are always loaded with the rule.
    - Note: Claude designed this and I feel it's pretty risky to store as JSON just from a maintainability standpoint.
 
-**NotificationLog**
+**NotificationLog** _(Tenant DB)_
 
-- `Id`, `TenantId` (FK), `RuleId` (nullable FK), `EventType`, `ChannelType`, `Status` (Sent/Failed/RateLimited), `ErrorMessage`, `PayloadJson`, `CreatedAt`
-- Append-only audit log. No updates, no deletes (except cascade from tenant delete).
-
-### Relationships
-
-```
-Tenant 1──* RoutingRule
-Tenant 1──* NotificationLog
-```
-
-Cascade delete is configured so that deleting a tenant removes all their rules and logs atomically — this is the "clean slate" expectation and avoids orphan rows.
+- `Id`, `TenantId` (plain Guid, no FK), `RuleId` (nullable Guid), `EventType`, `ChannelType`, `Status` (Sent/Failed/RateLimited), `ErrorMessage`, `PayloadJson`, `CreatedAt`
+- Append-only audit log. `TenantId` is stored as a plain column (not a FK) for observability — the database itself is the tenant boundary.
 
 ### Where Tenant Scoping Lives
 
-Every repository method that retrieves data includes `TenantId` in the WHERE clause. The rule of thumb: **a rule ID alone is never sufficient** — `GetByIdAndTenantAsync(ruleId, tenantId)` is the pattern everywhere. This is enforced in code and verified by integration tests.
+The **database is the tenant boundary**. Each tenant's `AppDbContext` points at a separate SQL Server database that contains only that tenant's rows. There is no cross-tenant WHERE clause needed — a bug that omits a filter cannot read another tenant's data because the data does not exist in the connected database.
+
+`TenantId` columns are retained on `RoutingRule` and `NotificationLog` as a denormalization for observability (useful in logs, traces, and potential future cross-DB analytics).
 
 ---
 
 ## Isolation Strategy
 
-**Chosen: Shared database with `TenantId` column (Row-Level Scoping)**
+**Chosen: Database-per-tenant**
 
-Every table carries a `TenantId` column. All repository queries filter by it. Entity Framework configurations add composite indexes (`TenantId + IsActive`, `TenantId + CreatedAt`) to keep cross-tenant reads from degrading performance even at scale.
+Each tenant gets its own SQL Server database, provisioned at tenant-creation time by `DatabaseProvisioner`. A shared catalog database (`NotificationPlatform_Catalog`) stores tenant metadata including each tenant's connection string. At request time, `TenantDbContextFactory` resolves the connection string from the catalog (cached for 5 minutes in `IMemoryCache`) and creates an `AppDbContext` pointed at the correct database.
 
 **What I considered:**
 
-| Strategy                      | Pros                                                            | Cons                                                                                |
-| ----------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Shared DB + `TenantId` column | Simple, one schema to migrate, scales to many tenants           | Must be disciplined about filtering in every query; no DB-level enforcement         |
-| Schema-per-tenant             | DB enforces isolation by schema, easy to dump one tenant's data | Much harder migrations, max ~100 schemas practical in SQL Server                    |
-| Database-per-tenant           | Full isolation, trivial to offboard a tenant                    | Operational explosion; connection string management at scale is a product in itself |
+| Strategy | Data isolation | Resource isolation | Ops complexity |
+|---|---|---|---|
+| Shared DB + `TenantId` column | Code-enforced, filterable | Weak — shared locks, buffer pool, I/O | Low |
+| Schema-per-tenant | Schema-enforced | Weak — same engine process | Medium |
+| **Database-per-tenant** ✓ | Physical separation | Strong — separate files, logs, buffer pool | Higher |
 
-**Why this one wins for this scope:** The project has one developer, a 2–4hr budget, and needs to be defensible in code review. Row-level scoping keeps the schema simple and all isolation logic visible in one place (the repositories). The integration tests demonstrate that the filtering holds — a reviewer can read `GetByIdAndTenantAsync` and understand the isolation guarantee in one line.
+**Why database-per-tenant wins:**
 
-**Known gap:** SQL Server Row-Level Security (RLS) policies could enforce isolation at the database engine level, preventing a future developer from accidentally writing an unscoped query. With more time I would add RLS as a defense-in-depth layer on top of the code-level filtering.
+The requirement explicitly calls out resource isolation ("every tenant must be safely isolated from every other tenant, both in their data and in their ability to consume system resources"). A shared database satisfies data isolation through query filtering, but a long-running query from Tenant A can lock pages, pollute the buffer pool, and exhaust connections for Tenant B.
+
+With database-per-tenant:
+- A query from Tenant A only takes locks on `NotificationPlatform_acme` — Tenant B's database is untouched
+- Buffer pool pages are per-database — heavy reads from one tenant do not evict another tenant's cached pages
+- SQL Server Resource Governor can be layered on to cap CPU/memory per database if hard SLA guarantees are needed
+- Offboarding a tenant is a single `DROP DATABASE` — no need to delete rows across shared tables
+
+**Trade-offs accepted:**
+- Cross-tenant reporting requires querying N databases or an ETL pipeline into a warehouse
+- Connection pool pressure grows with tenant count (`Min Pool Size=0` mitigates idle connections)
+- The catalog DB becomes a single point of failure for tenant resolution — it needs HA in production (Always On AG or Azure SQL)
+- `DatabaseProvisioner` requires the SA login to have `dbcreator` rights — in production this would be a dedicated provisioning principal with scoped permissions
 
 ---
 
