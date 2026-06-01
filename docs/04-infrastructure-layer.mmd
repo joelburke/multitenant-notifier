@@ -1,61 +1,72 @@
 classDiagram
-    class AppDbContext {
+    class CatalogDbContext {
         +DbSet~Tenant~ Tenants
+        #OnModelCreating(ModelBuilder)
+    }
+    class AppDbContext {
         +DbSet~RoutingRule~ RoutingRules
         +DbSet~NotificationLog~ NotificationLogs
         #OnModelCreating(ModelBuilder)
     }
-    class TenantConfiguration {
-        <<IEntityTypeConfiguration>>
+    class AppDbContextFactory {
+        <<IDesignTimeDbContextFactory>>
+        +CreateDbContext(args) AppDbContext
     }
-    class RoutingRuleConfiguration {
-        <<IEntityTypeConfiguration>>
+    class TenantDbContextFactory {
+        -CatalogDbContext _catalog
+        -IMemoryCache _cache
+        +CreateAsync(tenantId) Task~AppDbContext~
+        +InvalidateCache(tenantId)
     }
-    class NotificationLogConfiguration {
-        <<IEntityTypeConfiguration>>
+    class DatabaseProvisioner {
+        -IConfiguration _config
+        +ProvisionAsync(slug) Task~string~
+        +DeprovisionAsync(connStr) Task
+    }
+    class TenantMigrationRunner {
+        <<IHostedService>>
+        +StartAsync(ct) Task
     }
     class TenantRepository {
-        -AppDbContext _db
+        -CatalogDbContext _catalog
     }
     class RoutingRuleRepository {
-        -AppDbContext _db
+        -TenantDbContextFactory _factory
     }
     class NotificationLogRepository {
-        -AppDbContext _db
+        -TenantDbContextFactory _factory
     }
     class LogDispatcher {
-        -ILogger _logger
         +ChannelType = "log"
         +DispatchAsync(request, ct)
     }
     class WebhookDispatcher {
-        -IHttpClientFactory _httpClientFactory
-        -ILogger _logger
         +ChannelType = "webhook"
         +DispatchAsync(request, ct)
     }
     class DispatcherRegistry {
         -Dictionary~string,INotificationDispatcher~ _map
         +Resolve(channelType)
-        +RegisteredChannelTypes
     }
     class SlidingWindowRateLimiter {
         -ConcurrentDictionary~Guid,Queue~DateTime~~ _windows
-        +TryConsume(tenantId, limitPerMinute)
+        +TryConsume(tenantId, limit)
     }
 
     TenantRepository ..|> ITenantRepository : implements
     RoutingRuleRepository ..|> IRoutingRuleRepository : implements
     NotificationLogRepository ..|> INotificationLogRepository : implements
+    DatabaseProvisioner ..|> IDatabaseProvisioner : implements
     LogDispatcher ..|> INotificationDispatcher : implements
     WebhookDispatcher ..|> INotificationDispatcher : implements
     DispatcherRegistry ..|> IDispatcherRegistry : implements
     SlidingWindowRateLimiter ..|> IRateLimiter : implements
 
-    TenantRepository --> AppDbContext
-    RoutingRuleRepository --> AppDbContext
-    NotificationLogRepository --> AppDbContext
-    AppDbContext --> TenantConfiguration
-    AppDbContext --> RoutingRuleConfiguration
-    AppDbContext --> NotificationLogConfiguration
+    TenantRepository --> CatalogDbContext
+    TenantDbContextFactory --> CatalogDbContext
+    RoutingRuleRepository --> TenantDbContextFactory
+    NotificationLogRepository --> TenantDbContextFactory
+    TenantDbContextFactory ..> AppDbContext : creates
+    TenantMigrationRunner --> CatalogDbContext
+    TenantMigrationRunner ..> AppDbContext : migrates per tenant
     DispatcherRegistry --> INotificationDispatcher
