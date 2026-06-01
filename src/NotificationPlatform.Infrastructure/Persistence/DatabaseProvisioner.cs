@@ -77,11 +77,23 @@ public partial class DatabaseProvisioner(IConfiguration configuration) : IDataba
         await using var connection = new SqlConnection(serverConnectionString);
         await connection.OpenAsync(ct);
 
-        // sys.databases lookup parameterized; CREATE DATABASE identifier bracket-quoted
-        var sql = $"IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = @dbName) CREATE DATABASE [{dbName}]";
-        await using var cmd = new SqlCommand(sql, connection);
-        cmd.Parameters.AddWithValue("@dbName", dbName);
-        await cmd.ExecuteNonQueryAsync(ct);
+        // sys.databases lookup parameterized; DDL identifiers bracket-quoted
+        var createSql = $"IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = @dbName) CREATE DATABASE [{dbName}]";
+        await using (var cmd = new SqlCommand(createSql, connection))
+        {
+            cmd.Parameters.AddWithValue("@dbName", dbName);
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+
+        // SQL Server Express sets AUTO_CLOSE ON by default. With our per-operation context pattern
+        // (each repository call creates and disposes its own AppDbContext), the connection pool drains
+        // after every query and Express closes the database. The next query triggers a full recovery
+        // cycle (~1-2s). Setting AUTO_CLOSE OFF keeps the database warm between connections.
+        var autoCloseSql = $"ALTER DATABASE [{dbName}] SET AUTO_CLOSE OFF";
+        await using (var cmd = new SqlCommand(autoCloseSql, connection))
+        {
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
     }
 
     private static async Task RunMigrationsAsync(string connectionString, CancellationToken ct)
