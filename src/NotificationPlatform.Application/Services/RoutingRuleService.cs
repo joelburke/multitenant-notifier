@@ -35,7 +35,6 @@ public class RoutingRuleService(
         var rule = RoutingRule.Create(tenantId, request.Name, request.EventTypePattern, request.MatchMode, channelsJson, request.Priority);
 
         await ruleRepository.AddAsync(rule, ct);
-        await ruleRepository.SaveChangesAsync(ct);
         return MapToResponse(rule);
     }
 
@@ -49,7 +48,8 @@ public class RoutingRuleService(
         var channelsJson = JsonSerializer.Serialize(request.Channels, JsonOptions);
         rule.Update(request.Name, request.EventTypePattern, request.MatchMode, channelsJson, request.Priority);
 
-        await ruleRepository.SaveChangesAsync(ct);
+        // The entity is already tracked by the context inside AddAsync — use a dedicated update path
+        await ruleRepository.UpdateAsync(rule, ct);
         return MapToResponse(rule);
     }
 
@@ -61,7 +61,6 @@ public class RoutingRuleService(
             ?? throw new RoutingRuleNotFoundException(id, tenantId);
 
         await ruleRepository.DeleteAsync(rule, ct);
-        await ruleRepository.SaveChangesAsync(ct);
     }
 
     private async Task EnsureTenantExistsAsync(Guid tenantId, CancellationToken ct)

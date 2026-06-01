@@ -5,7 +5,9 @@ using NotificationPlatform.Domain.Exceptions;
 
 namespace NotificationPlatform.Application.Services;
 
-public class TenantService(ITenantRepository tenantRepository)
+public class TenantService(
+    ITenantRepository tenantRepository,
+    IDatabaseProvisioner provisioner)
 {
     public async Task<IReadOnlyList<TenantResponseDto>> GetAllAsync(CancellationToken ct = default)
     {
@@ -25,7 +27,11 @@ public class TenantService(ITenantRepository tenantRepository)
         if (await tenantRepository.SlugExistsAsync(request.Slug, ct))
             throw new DuplicateTenantSlugException(request.Slug);
 
-        var tenant = Tenant.Create(request.Name, request.Slug, request.RateLimitPerMinute);
+        // Provision the isolated database before writing the catalog record.
+        // If provisioning fails the catalog record is never written — no orphan entry.
+        var connectionString = await provisioner.ProvisionAsync(request.Slug, ct);
+
+        var tenant = Tenant.Create(request.Name, request.Slug, request.RateLimitPerMinute, connectionString);
         await tenantRepository.AddAsync(tenant, ct);
         await tenantRepository.SaveChangesAsync(ct);
         return MapToResponse(tenant);
@@ -46,8 +52,13 @@ public class TenantService(ITenantRepository tenantRepository)
         var tenant = await tenantRepository.GetByIdAsync(id, ct)
             ?? throw new TenantNotFoundException(id);
 
+        var connectionString = tenant.ConnectionString;
+
+        // Remove catalog record first; provisioner drops the database after.
         await tenantRepository.DeleteAsync(tenant, ct);
         await tenantRepository.SaveChangesAsync(ct);
+
+        await provisioner.DeprovisionAsync(connectionString, ct);
     }
 
     private static TenantResponseDto MapToResponse(Tenant t) =>

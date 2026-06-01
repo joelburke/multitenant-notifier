@@ -144,7 +144,7 @@ Api          — controllers, middleware, DI wiring; depends on Application + In
 
 **Key design decisions:**
 
-- **Isolation**: Shared database with `TenantId` column; every repository query filters by tenant
+- **Isolation**: Database-per-tenant — each tenant gets its own SQL Server database provisioned at creation time. A catalog database (`NotificationPlatform_Catalog`) holds tenant metadata and connection strings. Tenant databases share no tables, transaction logs, or buffer pool entries.
 - **Rate limiting**: In-memory sliding window, fully isolated per tenant
 - **Dispatchers**: `INotificationDispatcher` interface; new channels require only a new class + one DI line
 
@@ -156,6 +156,7 @@ Api          — controllers, middleware, DI wiring; depends on Application + In
 - No authentication — `tenant_id` in the request body is not production-safe
 - No webhook retry logic — failed POSTs are logged but not retried
 - Rule conditions match on event type only — no payload field filtering
+- Tenant database connection strings are stored in plaintext in the catalog DB — production would use a secrets store (Azure Key Vault, AWS Secrets Manager)
 
 ---
 
@@ -169,6 +170,8 @@ This project was built with Claude Code (Anthropic). Claude generated the majori
 1. Testing swagger resulted in 404's so I asked claude to review. It caught a mismatch in the dockercompose (env = prod) and the swagger middleware was originally only running in env = dev so I removed that and got it working.
 1. I prompted claude to create a vscode.workplace file for easy reuse. It created a `/root` folder duplicating a lot of the other projects which I could take or leave.
 1. Because I requested a clean architecture and clean code impementation, the solution was a little more complex than I'd like and the `desisgn.md` left some to be desired. I requested claude add at least one architectural diagram in `design.md` to at least explain each project, the purposoe of it, what is contained in it, the dependency flow and the classes. I also used it to correct a mermaid syntax error it made when rendering them on github.com. It is now much simpler to understand.
+1. Requested provide a recommendation to refactor so tenants would have system resources isolated. Created a branch to apply tenant-per-db refactors including updates to readme's
+1. Debugged and resolved an issue with databases shutting down and starting up multiple times a min, resolved by setting auto_close ON after db creation to keep db warm
 
 ## Given More Time
 
@@ -184,10 +187,7 @@ I would
 - [ ] Remove credentials like SQL creds from plaintext `appsettings.json` files and ideally put in a credentials store or something, or at least get them out of being committed in plaintext to git and put them in env files gitignored for docker.
 - [ ] Enhance the error messages displayed to the user in the admin UI to share what went wrong and the action the user needs to take to resolve.
 - [x] Update `design.md` to have some architectural diagrams. At least a visual representation of each project, their dependency flow, and an overview of the classes in each project is importan
-- [ ] Update `claude.md` to ensure it more accurately represents the initial requirements and the design choices I've made.
-- [ ] Run some CURLs in for loops to test rate limiting
+- [x] Update `claude.md` to ensure it more accurately represents the initial requirements and the design choices I've made.
+- [x] Run some CURLs in for loops to test rate limiting
 - [ ] Consider refactoring Channels in the db, currently they are stored as JSON (nvarchar(max)) rather than a separate table which seems difficult to maintain
-- [ ] Review this and ensure it doesn't have system resources. One pereson running a long query could definitely impact system resources. "what makes it interesting is that every tenant must be
-      safely isolated from every other tenant, both in their data and in their ability to consume
-      system resources."
-      Review the output in the main claude session and consider a db per tenant with terraform implementation or something like that.
+- [x] Refactored to database-per-tenant for true resource isolation — each tenant's queries, locks, and buffer pool usage are physically isolated. A long-running query from Tenant A cannot block Tenant B.

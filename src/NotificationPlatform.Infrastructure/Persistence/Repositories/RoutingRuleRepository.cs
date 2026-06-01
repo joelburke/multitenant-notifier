@@ -1,32 +1,46 @@
 using Microsoft.EntityFrameworkCore;
 using NotificationPlatform.Application.Interfaces;
 using NotificationPlatform.Domain.Entities;
+using NotificationPlatform.Infrastructure.Persistence.Factories;
 
 namespace NotificationPlatform.Infrastructure.Persistence.Repositories;
 
-public class RoutingRuleRepository(AppDbContext db) : IRoutingRuleRepository
+public class RoutingRuleRepository(TenantDbContextFactory contextFactory) : IRoutingRuleRepository
 {
-    public Task<IReadOnlyList<RoutingRule>> GetByTenantAsync(Guid tenantId, CancellationToken ct = default) =>
-        db.RoutingRules
-            .Where(r => r.TenantId == tenantId)
+    public async Task<IReadOnlyList<RoutingRule>> GetByTenantAsync(Guid tenantId, CancellationToken ct = default)
+    {
+        await using var db = await contextFactory.CreateAsync(tenantId, ct);
+        return await db.RoutingRules
             .OrderBy(r => r.Priority)
             .ThenBy(r => r.CreatedAt)
-            .ToListAsync(ct)
-            .ContinueWith<IReadOnlyList<RoutingRule>>(t => t.Result, ct);
-
-    public Task<RoutingRule?> GetByIdAndTenantAsync(Guid id, Guid tenantId, CancellationToken ct = default) =>
-        // TenantId filter here is the isolation gate — a rule ID alone is never sufficient
-        db.RoutingRules.FirstOrDefaultAsync(r => r.Id == id && r.TenantId == tenantId, ct);
-
-    public async Task AddAsync(RoutingRule rule, CancellationToken ct = default) =>
-        await db.RoutingRules.AddAsync(rule, ct);
-
-    public Task DeleteAsync(RoutingRule rule, CancellationToken ct = default)
-    {
-        db.RoutingRules.Remove(rule);
-        return Task.CompletedTask;
+            .ToListAsync(ct);
     }
 
-    public Task SaveChangesAsync(CancellationToken ct = default) =>
-        db.SaveChangesAsync(ct);
+    public async Task<RoutingRule?> GetByIdAndTenantAsync(Guid id, Guid tenantId, CancellationToken ct = default)
+    {
+        await using var db = await contextFactory.CreateAsync(tenantId, ct);
+        // The database IS the tenant boundary; TenantId filter retained as secondary guard.
+        return await db.RoutingRules.FirstOrDefaultAsync(r => r.Id == id && r.TenantId == tenantId, ct);
+    }
+
+    public async Task AddAsync(RoutingRule rule, CancellationToken ct = default)
+    {
+        await using var db = await contextFactory.CreateAsync(rule.TenantId, ct);
+        await db.RoutingRules.AddAsync(rule, ct);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task UpdateAsync(RoutingRule rule, CancellationToken ct = default)
+    {
+        await using var db = await contextFactory.CreateAsync(rule.TenantId, ct);
+        db.RoutingRules.Update(rule);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task DeleteAsync(RoutingRule rule, CancellationToken ct = default)
+    {
+        await using var db = await contextFactory.CreateAsync(rule.TenantId, ct);
+        db.RoutingRules.Remove(rule);
+        await db.SaveChangesAsync(ct);
+    }
 }

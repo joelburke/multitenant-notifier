@@ -12,8 +12,6 @@ public class NotificationLog
     public string PayloadJson { get; private set; } = "{}";
     public DateTime CreatedAt { get; private set; }
 
-    public Tenant Tenant { get; private set; } = null!;
-
     private NotificationLog() { }
 
     public static NotificationLog Create(

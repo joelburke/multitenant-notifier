@@ -10,12 +10,15 @@ public class Tenant
     public DateTime CreatedAt { get; private set; }
     public DateTime UpdatedAt { get; private set; }
 
-    public ICollection<RoutingRule> RoutingRules { get; private set; } = [];
-    public ICollection<NotificationLog> NotificationLogs { get; private set; } = [];
+    /// <summary>
+    /// Connection string to this tenant's isolated database.
+    /// Stored in the catalog DB only — never exposed through the API.
+    /// </summary>
+    public string ConnectionString { get; private set; } = string.Empty;
 
     private Tenant() { }
 
-    public static Tenant Create(string name, string slug, int rateLimitPerMinute)
+    public static Tenant Create(string name, string slug, int rateLimitPerMinute, string connectionString)
     {
         return new Tenant
         {
@@ -23,6 +26,7 @@ public class Tenant
             Name = name,
             Slug = slug.ToLowerInvariant(),
             RateLimitPerMinute = rateLimitPerMinute,
+            ConnectionString = connectionString,
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow

@@ -64,10 +64,11 @@ Diagrams live in `ARCHITECTURE.md` (Mermaid source) and `docs/` (pre-rendered PD
 
 ## Key design decisions
 
-- **Isolation**: Shared database, `TenantId` column on all tables, all repo queries filter by it
+- **Isolation**: Database-per-tenant. A catalog DB (`NotificationPlatform_Catalog`) stores tenant metadata including each tenant's connection string. On `POST /api/tenants`, `DatabaseProvisioner` runs `CREATE DATABASE` and migrates it. `TenantDbContextFactory` resolves the connection string (5-min memory cache) and creates an `AppDbContext` per request. Each tenant's rules and logs live in `NotificationPlatform_{slug}` — physically isolated files, separate transaction logs, no shared tables.
 - **Rate limiting**: In-memory sliding window, per-tenant `ConcurrentDictionary<Guid, Queue<DateTime>>`
 - **Dispatchers**: `INotificationDispatcher` interface; `DispatcherRegistry` resolves by `ChannelType` string; adding a channel = new class + one DI registration
 - **Rules**: `EventTypePattern` + `MatchMode` (Exact/Prefix/Contains); channels stored as JSON column
+- **Migrations**: `TenantMigrationRunner` (IHostedService) runs EF migrations on the catalog DB and every active tenant DB at startup
 
 ## Original Requirements
 

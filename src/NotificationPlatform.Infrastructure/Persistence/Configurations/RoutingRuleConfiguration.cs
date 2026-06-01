@@ -14,7 +14,8 @@ public class RoutingRuleConfiguration : IEntityTypeConfiguration<RoutingRule>
         builder.Property(r => r.MatchMode).IsRequired();
         builder.Property(r => r.ChannelsJson).IsRequired().HasColumnType("nvarchar(max)");
 
-        // Filtering by TenantId is the critical isolation boundary — index makes it fast.
+        // TenantId is stored for observability only — no FK since Tenant lives in a different database.
+        builder.Property(r => r.TenantId).IsRequired();
         builder.HasIndex(r => r.TenantId);
         builder.HasIndex(r => new { r.TenantId, r.IsActive });
     }

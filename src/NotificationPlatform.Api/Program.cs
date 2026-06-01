@@ -1,7 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using NotificationPlatform.Api.Middleware;
 using NotificationPlatform.Infrastructure;
-using NotificationPlatform.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,19 +22,12 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 app.UseMiddleware<ExceptionMiddleware>();
-
 app.UseSwagger();
 app.UseSwaggerUI();
-
 app.UseCors();
 app.MapControllers();
 
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
-}
-
+// Catalog + all tenant DB migrations run via TenantMigrationRunner (IHostedService)
 app.Run();
 
 public partial class Program { }

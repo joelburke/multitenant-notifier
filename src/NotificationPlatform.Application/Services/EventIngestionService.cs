@@ -17,9 +17,80 @@ public class EventIngestionService(
 
     public async Task<IngestEventResponseDto> IngestAsync(IngestEventRequestDto request, CancellationToken ct = default)
     {
-        var tenant = await GetAndValidateTenantAsync(request.TenantId, ct);
-        await EnforceRateLimitOrThrowAsync(tenant, request.EventType, request.Payload, ct);
-        return await DispatchEventToMatchingRulesAsync(tenant, request, ct);
+        var tenant = await ValidateTenantAsync(request.TenantId, ct);
+        await EnforceRateLimitAsync(tenant, request, ct);
+        var matchingRules = await GetMatchingRulesAsync(tenant.Id, request.EventType, ct);
+        var dispatchedChannels = await DispatchToChannelsAsync(tenant, matchingRules, request, ct);
+        return new IngestEventResponseDto(dispatchedChannels.Count, false, dispatchedChannels);
+    }
+
+    private async Task<Tenant> ValidateTenantAsync(Guid tenantId, CancellationToken ct)
+    {
+        var tenant = await tenantRepository.GetByIdAsync(tenantId, ct)
+            ?? throw new TenantNotFoundException(tenantId);
+
+        if (!tenant.IsActive)
+            throw new TenantNotFoundException(tenantId);
+
+        return tenant;
+    }
+
+    private async Task EnforceRateLimitAsync(Tenant tenant, IngestEventRequestDto request, CancellationToken ct)
+    {
+        if (rateLimiter.TryConsume(tenant.Id, tenant.RateLimitPerMinute))
+            return;
+
+        var log = NotificationLog.Create(
+            tenant.Id, null, request.EventType, "none",
+            DispatchStatus.RateLimited,
+            JsonSerializer.Serialize(request.Payload ?? [], JsonOptions));
+
+        await logRepository.AddAsync(log, ct);
+        throw new RateLimitExceededException(tenant.Id, tenant.RateLimitPerMinute);
+    }
+
+    private async Task<IReadOnlyList<RoutingRule>> GetMatchingRulesAsync(Guid tenantId, string eventType, CancellationToken ct)
+    {
+        var rules = await ruleRepository.GetByTenantAsync(tenantId, ct);
+        return [.. rules.Where(r => r.IsActive && r.Matches(eventType)).OrderBy(r => r.Priority)];
+    }
+
+    private async Task<List<string>> DispatchToChannelsAsync(Tenant tenant, IReadOnlyList<RoutingRule> matchingRules, IngestEventRequestDto request, CancellationToken ct)
+    {
+        var payload = request.Payload ?? [];
+        var payloadJson = JsonSerializer.Serialize(payload, JsonOptions);
+        var dispatchedChannels = new List<string>();
+
+        foreach (var rule in matchingRules)
+        {
+            var channels = JsonSerializer.Deserialize<IList<ChannelConfigDto>>(rule.ChannelsJson, JsonOptions) ?? [];
+            foreach (var channel in channels)
+            {
+                var succeeded = await DispatchChannelAsync(tenant.Id, rule.Id, request.EventType, payload, payloadJson, channel, ct);
+                if (succeeded) dispatchedChannels.Add(channel.Type);
+            }
+        }
+
+        return dispatchedChannels;
+    }
+
+    private async Task<bool> DispatchChannelAsync(
+        Guid tenantId, Guid ruleId, string eventType,
+        Dictionary<string, object?> payload, string payloadJson,
+        ChannelConfigDto channel, CancellationToken ct)
+    {
+        var dispatchRequest = new DispatchRequestDto(tenantId, ruleId, eventType, payload, channel);
+        var dispatcher = dispatcherRegistry.Resolve(channel.Type);
+
+        var result = dispatcher is null
+            ? DispatchResultDto.Fail($"No dispatcher registered for channel type '{channel.Type}'.")
+            : await dispatcher.DispatchAsync(dispatchRequest, ct);
+
+        var status = result.Success ? DispatchStatus.Sent : DispatchStatus.Failed;
+        var log = NotificationLog.Create(tenantId, ruleId, eventType, channel.Type, status, payloadJson, result.ErrorMessage);
+        await logRepository.AddAsync(log, ct);
+
+        return result.Success;
     }
 
     public async Task<IReadOnlyList<NotificationLogResponseDto>> GetLogsAsync(
@@ -33,87 +104,4 @@ public class EventIngestionService(
             l.Id, l.TenantId, l.RuleId, l.EventType,
             l.ChannelType, l.Status.ToString(), l.ErrorMessage, l.CreatedAt)).ToList();
     }
-
-    private async Task<Tenant> GetAndValidateTenantAsync(Guid tenantId, CancellationToken ct)
-    {
-        var tenant = await tenantRepository.GetByIdAsync(tenantId, ct);
-        if (tenant is null || !tenant.IsActive)
-            throw new TenantNotFoundException(tenantId);
-        return tenant;
-    }
-
-    private async Task EnforceRateLimitOrThrowAsync(
-        Tenant tenant, string eventType, Dictionary<string, object?>? payload, CancellationToken ct)
-    {
-        if (rateLimiter.TryConsume(tenant.Id, tenant.RateLimitPerMinute))
-            return;
-
-        var rateLimitedLog = NotificationLog.Create(
-            tenant.Id, null, eventType, "none",
-            DispatchStatus.RateLimited, SerializePayload(payload));
-        await logRepository.AddAsync(rateLimitedLog, ct);
-        await logRepository.SaveChangesAsync(ct);
-
-        throw new RateLimitExceededException(tenant.Id, tenant.RateLimitPerMinute);
-    }
-
-    private async Task<IngestEventResponseDto> DispatchEventToMatchingRulesAsync(
-        Tenant tenant, IngestEventRequestDto request, CancellationToken ct)
-    {
-        var matchingRules = await GetActiveRulesMatchingEventTypeAsync(tenant.Id, request.EventType, ct);
-        var payload = request.Payload ?? new();
-        var payloadJson = SerializePayload(payload);
-        var successfulChannels = new List<string>();
-
-        foreach (var rule in matchingRules)
-        {
-            foreach (var channel in DeserializeChannels(rule.ChannelsJson))
-            {
-                var result = await DispatchToChannelAsync(tenant.Id, rule.Id, request.EventType, payload, channel, ct);
-                await LogDispatchResultAsync(tenant.Id, rule.Id, request.EventType, channel.Type, payloadJson, result, ct);
-
-                if (result.Success)
-                    successfulChannels.Add(channel.Type);
-            }
-        }
-
-        await logRepository.SaveChangesAsync(ct);
-        return new IngestEventResponseDto(successfulChannels.Count, false, successfulChannels);
-    }
-
-    private async Task<IEnumerable<RoutingRule>> GetActiveRulesMatchingEventTypeAsync(
-        Guid tenantId, string eventType, CancellationToken ct)
-    {
-        var tenantRules = await ruleRepository.GetByTenantAsync(tenantId, ct);
-        return tenantRules
-            .Where(rule => rule.IsActive && rule.Matches(eventType))
-            .OrderBy(rule => rule.Priority);
-    }
-
-    private async Task<DispatchResultDto> DispatchToChannelAsync(
-        Guid tenantId, Guid ruleId, string eventType,
-        Dictionary<string, object?> payload, ChannelConfigDto channel, CancellationToken ct)
-    {
-        var dispatcher = dispatcherRegistry.Resolve(channel.Type);
-        if (dispatcher is null)
-            return DispatchResultDto.Fail($"No dispatcher registered for channel type '{channel.Type}'.");
-
-        var dispatchRequest = new DispatchRequestDto(tenantId, ruleId, eventType, payload, channel);
-        return await dispatcher.DispatchAsync(dispatchRequest, ct);
-    }
-
-    private async Task LogDispatchResultAsync(
-        Guid tenantId, Guid ruleId, string eventType, string channelType,
-        string payloadJson, DispatchResultDto result, CancellationToken ct)
-    {
-        var status = result.Success ? DispatchStatus.Sent : DispatchStatus.Failed;
-        var log = NotificationLog.Create(tenantId, ruleId, eventType, channelType, status, payloadJson, result.ErrorMessage);
-        await logRepository.AddAsync(log, ct);
-    }
-
-    private static string SerializePayload(Dictionary<string, object?>? payload) =>
-        JsonSerializer.Serialize(payload ?? new(), JsonOptions);
-
-    private static IList<ChannelConfigDto> DeserializeChannels(string channelsJson) =>
-        JsonSerializer.Deserialize<IList<ChannelConfigDto>>(channelsJson, JsonOptions) ?? [];
 }
