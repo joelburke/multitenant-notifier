@@ -40,6 +40,34 @@ The **database is the tenant boundary**. Each tenant's `AppDbContext` points at 
 
 ---
 
+## Routing Rules
+
+### The model
+
+A `RoutingRule` lets a tenant say: *"for events matching this pattern, dispatch to these channels."*
+
+Three fields drive matching:
+
+| Field | Values | What it does |
+|---|---|---|
+| `EventTypePattern` | any string | the value to match against the incoming `eventType` |
+| `MatchMode` | `Exact`, `Prefix`, `Contains` | how the comparison is applied |
+| `Priority` | integer | lower number = evaluated first; first match wins |
+
+Channels are stored as a JSON column (`ChannelsJson`) — a serialised list of `{ type, settings }` objects. Each entry maps directly to an `INotificationDispatcher` implementation via `ChannelType`.
+
+### Why this match model over alternatives
+
+**Why not regex?** Regex is expressive but it's also a footgun — catastrophic backtracking is a real production incident waiting to happen if a tenant can supply arbitrary patterns. Exact/Prefix/Contains covers the practical 95%: "notify on all `order.*` events" is a prefix match; "notify on exactly `payment.failed`" is exact; "notify on anything containing `critical`" is contains. Regex can always be added as a fourth mode if demand justifies the added attack surface.
+
+**Why not a payload condition engine?** The current model matches on event type only. Matching on payload fields (e.g. `payload.severity == "critical"`) would be significantly more powerful but also significantly more complex to implement safely and to expose via API. It's called out in Known Limitations as a natural next step.
+
+**Why first-match-wins over all-match?** Priority + first-match gives tenants explicit control over which rule "wins" without needing to reason about how multiple overlapping matches compose. All-match would let a single event fan out to channels from several rules simultaneously — useful in some cases but much harder to predict and debug. Tenants who want all-match behaviour can set all their rules to the same priority and rely on the fact that within a single rule, multiple channels are always all dispatched.
+
+**Why channels as JSON?** A normalised `RuleChannel` table would require a join on every single event ingestion and would require a migration every time a channel type adds a new settings field. JSON lets the channel schema evolve independently of the database schema. The accepted trade-off is that you cannot efficiently query `WHERE channel.type = 'webhook'` without JSON path syntax — but channels are always loaded with their parent rule, so this has not been a practical limitation.
+
+---
+
 ## Isolation Strategy
 
 **Chosen: Database-per-tenant**
