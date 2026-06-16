@@ -322,6 +322,76 @@ classDiagram
 
 ---
 
+## Database Schema
+
+The system uses two physically separate SQL Server databases. There are **no cross-database foreign key constraints** — `TenantId` is stored as a plain column in the tenant DB to support filtering and logging, but referential integrity is enforced in application code only.
+
+```mermaid
+erDiagram
+    %% ── NotificationPlatform_Catalog (one shared database) ──
+    Tenants {
+        GUID Id PK
+        string Name "max 100"
+        string Slug UK "max 50, unique index"
+        int RateLimitPerMinute
+        bool IsActive
+        datetime CreatedAt
+        datetime UpdatedAt
+        string ConnectionString "max 500 – never exposed via API"
+    }
+
+    %% ── NotificationPlatform_{slug} (one database per tenant) ──
+    RoutingRules {
+        GUID Id PK
+        GUID TenantId "no FK – cross-DB logical ref"
+        string Name "max 100"
+        string EventTypePattern "max 200"
+        int MatchMode "0=Exact 1=Prefix 2=Contains"
+        string ChannelsJson "JSON array of channel configs"
+        int Priority
+        bool IsActive
+        datetime CreatedAt
+        datetime UpdatedAt
+    }
+
+    NotificationLogs {
+        GUID Id PK
+        GUID TenantId "no FK – cross-DB logical ref"
+        GUID RuleId "nullable, no FK – rule that fired"
+        string EventType "max 200"
+        string ChannelType "max 50 e.g. log webhook"
+        int Status "0=Sent 1=Failed 2=RateLimited"
+        string ErrorMessage "max 500, nullable"
+        string PayloadJson "full event payload"
+        datetime CreatedAt
+    }
+
+    Tenants ||--o{ RoutingRules : "TenantId (cross-DB, logical)"
+    Tenants ||--o{ NotificationLogs : "TenantId (cross-DB, logical)"
+    RoutingRules |o--o{ NotificationLogs : "RuleId (same tenant DB, logical)"
+```
+
+**Indexes**
+
+| Table | Index | Type |
+|---|---|---|
+| `Tenants` | `IX_Tenants_Slug` | Unique |
+| `RoutingRules` | `IX_RoutingRules_TenantId` | Non-unique |
+| `RoutingRules` | `IX_RoutingRules_TenantId_IsActive` | Composite |
+| `NotificationLogs` | `IX_NotificationLogs_TenantId` | Non-unique |
+| `NotificationLogs` | `IX_NotificationLogs_TenantId_CreatedAt` | Composite |
+
+**`ChannelsJson` shape** — stored as a JSON array in `RoutingRules.ChannelsJson`, deserialized at routing time:
+
+```json
+[
+  { "Type": "log" },
+  { "Type": "webhook", "Url": "https://hooks.example.com/notify" }
+]
+```
+
+---
+
 ## Event Ingestion Request Flow
 
 End-to-end flow for `POST /api/events`. The catalog is hit once per request (5-min cached); the tenant DB handles rules and log writes.
