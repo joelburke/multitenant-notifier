@@ -1,6 +1,44 @@
 # Multi-Tenant Notification Platform
 
-A notification platform that ingests events from multiple customer organizations ("tenants"), applies per-tenant routing rules, and dispatches notifications on configured channels.
+A take-home project for [Mutually Human](https://www.mutuallyhuman.com/). A notification platform that ingests events from multiple customer organizations ("tenants"), applies per-tenant routing rules, and dispatches notifications on configured channels. Every tenant is safely isolated from every other — both in data and in ability to consume system resources.
+
+## Project Requirements
+
+The system is built around four moving parts:
+
+1. **Ingestion** — an HTTP endpoint that accepts events tagged with a `tenant_id`
+2. **Routing** — a rule engine that determines, per tenant, which channels (if any) should receive a notification for a given event
+3. **Dispatch** — the mechanism that sends the notification on matched channel(s)
+4. **Admin API** — endpoints for managing tenants and routing rules
+
+### Functional Requirements
+
+**Event Ingestion**
+- HTTP endpoint accepting `tenant_id`, an event type, and arbitrary additional fields
+- Validate requests; return appropriate errors for malformed input or unknown tenants
+- Apply the requesting tenant's routing rules and dispatch accordingly
+
+**Routing Rules**
+- Stored in the database and scoped to a single tenant
+- At minimum: "for events matching X, dispatch to channel(s) Y"
+
+**Dispatch**
+- Clean dispatcher abstraction — adding a new channel (email, Slack, webhook, SMS) must not require changes to the routing engine
+
+**Tenant Isolation**
+- Chosen strategy must ensure tenant A cannot read, modify, or affect tenant B's data or operations under any code path
+
+**Rate Limiting**
+- Each tenant has its own rate limit (algorithm and granularity are design decisions)
+- Tenant A exhausting their limit must not degrade tenant B's experience
+
+**Admin API**
+- Full CRUD for tenants and routing rules (scoped to a tenant)
+- Standard error handling and validation
+
+Authentication is **out of scope** — tenants identify themselves via `tenant_id` in the request body.
+
+---
 
 ## Prerequisites
 
