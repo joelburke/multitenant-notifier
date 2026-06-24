@@ -1,6 +1,6 @@
 # Multi-Tenant Notification Platform
 
-A take-home project for [Mutually Human](https://www.mutuallyhuman.com/). A notification platform that ingests events from multiple customer organizations ("tenants"), applies per-tenant routing rules, and dispatches notifications on configured channels. Every tenant is safely isolated from every other — both in data and in ability to consume system resources.
+A coding Challenge. A notification platform that ingests events from multiple customer organizations ("tenants"), applies per-tenant routing rules, and dispatches notifications on configured channels. Every tenant is safely isolated from every other — both in data and in ability to consume system resources.
 
 ## Project Requirements
 
@@ -14,25 +14,31 @@ The system is built around four moving parts:
 ### Functional Requirements
 
 **Event Ingestion**
+
 - HTTP endpoint accepting `tenant_id`, an event type, and arbitrary additional fields
 - Validate requests; return appropriate errors for malformed input or unknown tenants
 - Apply the requesting tenant's routing rules and dispatch accordingly
 
 **Routing Rules**
+
 - Stored in the database and scoped to a single tenant
 - At minimum: "for events matching X, dispatch to channel(s) Y"
 
 **Dispatch**
+
 - Clean dispatcher abstraction — adding a new channel (email, Slack, webhook, SMS) must not require changes to the routing engine
 
 **Tenant Isolation**
+
 - Chosen strategy must ensure tenant A cannot read, modify, or affect tenant B's data or operations under any code path
 
 **Rate Limiting**
+
 - Each tenant has its own rate limit (algorithm and granularity are design decisions)
 - Tenant A exhausting their limit must not degrade tenant B's experience
 
 **Admin API**
+
 - Full CRUD for tenants and routing rules (scoped to a tenant)
 - Standard error handling and validation
 
@@ -209,7 +215,7 @@ This project was built with Claude Code (Anthropic). Claude generated the majori
 1. I prompted claude to create a vscode.workplace file for easy reuse. It created a `/root` folder duplicating a lot of the other projects which I could take or leave.
 1. Because I requested a clean architecture and clean code impementation, the solution was a little more complex than I'd like and the `desisgn.md` left some to be desired. I requested claude add at least one architectural diagram in `design.md` to at least explain each project, the purposoe of it, what is contained in it, the dependency flow and the classes. I also used it to correct a mermaid syntax error it made when rendering them on github.com. It is now much simpler to understand.
 1. Requested provide a recommendation to refactor so tenants would have system resources isolated. Created a branch to apply tenant-per-db refactors including updates to readme's
-2. I noticed the application was vulnerable to sql injection from the UI because of how claude designed the db creation scripts, I pointed it out and had it refactor to sql parameterization
+1. I noticed the application was vulnerable to sql injection from the UI because of how claude designed the db creation scripts, I pointed it out and had it refactor to sql parameterization
 1. Debugged and resolved an issue with databases shutting down and starting up multiple times a min, resolved by setting auto_close ON after db creation to keep db warm
 
 ## Given More Time
